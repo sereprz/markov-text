@@ -61,7 +61,7 @@ class MarkovChain():
 
 
 def normalize(p):
-    if p.sum() < 1:
+    if p.sum() != 1:
         p /= p.sum()
     return p
 
