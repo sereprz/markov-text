@@ -1,4 +1,5 @@
 from collections import Counter
+from operator import itemgetter
 import numpy as np
 import nltk
 import re
@@ -10,47 +11,50 @@ class MarkovChain():
         self.order = order
 
         sentences = []
-        for line in re.split(re.compile('\.|!|\?|,"'), raw_text):
+        for line in re.split(re.compile('\.|!|\?|"'), raw_text):
             if line.strip() != '':
                 sentences.append(line.strip())
 
         self.text = '$'.join([s[:1].lower() + s[1:] for s in sentences])
 
         tokens = ['$'] + nltk.word_tokenize(self.text)
+        n_words = len(set(tokens))
 
-        states = [' '.join(state) for state in nltk.ngrams(tokens, n=order)]
-        states_freq = Counter(states)
+        states = list(nltk.ngrams(tokens, n=order))
+        n_states = len(set(states))
 
-        ngrams = [' '.join(ngram) for ngram in nltk.ngrams(tokens, n=order + 1)]
-        ngrams_freq = Counter(ngrams)
+        states_lookup = dict(zip(set(states), range(n_states)))
+        words_lookup = dict(zip(sorted(set(tokens)), range(n_words)))
 
-        trans_prob = {}
-        for ngram, freq in ngrams_freq.items():
-            state = ' '.join(ngram.split(' ')[:-1])
-            trans_prob[ngram] = float(freq)/states_freq[state]
+        counts = np.zeros((n_states, n_words))
 
-        first = [state for state in states_freq if state.split(' ')[0] == '$']
-        p_start = np.array([float(states_freq[state])/len(sentences) for state in first])
+        for ngram, c in Counter(nltk.ngrams(tokens, n=order + 1)).iteritems():
+            x = states_lookup[ngram[:order]]
+            y = words_lookup[ngram[order]]
+            counts[x, y] = c
 
-        self.first_state_prob = {'state': first, 'p': p_start}
-        self.transitions = trans_prob
+        with np.errstate(invalid='ignore', divide='ignore'):
+            P = counts/counts.sum(axis=1)[:, None]
+            P[np.isnan(P)] = 0
+
+        self.begin = sorted([state for state in set(states) if state[0] == '$'],
+                            key=itemgetter(1))
+
+        self.vocab = sorted(words_lookup.keys())
+        self.states = states_lookup
+        self.P = P
 
     def start_sentence(self):
-        starts = self.first_state_prob['state']
-        p = normalize(np.array(self.first_state_prob['p']))
-        return np.random.choice(starts, p=p)
+        return self.begin[np.random.choice(len(self.begin))]
 
     def next_word(self, last_state):
-        ngrams = [ngram for ngram in self.transitions
-                  if ' '.join(ngram.split()[:-1]) == last_state]
-        next = [ngram.split()[-1] for ngram in ngrams]
-        p = normalize(np.array([self.transitions[ngram] for ngram in ngrams]))
-
-        return np.random.choice(next, p=p)
+        row = self.states[last_state]
+        return np.random.choice(self.vocab, p=self.P[row])
 
     def generate_sentence(self):
-        s = self.start_sentence()
-        next = self.next_word(s)
+        last = self.start_sentence()
+        s = ' '.join(last)
+        next = self.next_word(last)
 
         while next != '$':
             s += ' ' + next
@@ -60,12 +64,6 @@ class MarkovChain():
         return ' '.join(s.split()[1:])
 
 
-def normalize(p):
-    if p.sum() != 1:
-        p /= p.sum()
-    return p
-
-
 def last_state(sentence, order):
     word_list = sentence.split()
-    return ' '.join(word_list[-order:])
+    return tuple(word_list[-order:])
