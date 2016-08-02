@@ -2,20 +2,13 @@ from collections import Counter
 from operator import itemgetter
 import numpy as np
 import nltk
-import re
 
 
 class MarkovChain():
-    def __init__(self, raw_text, order):
+    def __init__(self, text, order):
 
+        self.text = text
         self.order = order
-
-        sentences = []
-        for line in re.split(re.compile('\.|!|\?|"'), raw_text):
-            if line.strip() != '':
-                sentences.append(line.strip())
-
-        self.text = '$'.join([s[:1].lower() + s[1:] for s in sentences])
 
         tokens = ['$'] + nltk.word_tokenize(self.text)
         n_words = len(set(tokens))
