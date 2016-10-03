@@ -10,8 +10,7 @@ DORIAN_GRAY = 'http://www.gutenberg.org/files/174/174.txt'
 def parse_from_url(url,
                    start_str=START_STRING,
                    end_str=END_STRING,
-                   unit=PART,
-                   end_sentence='$'):
+                   unit=PART):
     '''
         Parse text from url (defaults from Project Gutenberg's)
 
@@ -35,4 +34,4 @@ def parse_from_url(url,
         if line.strip() != '':
             sentences.append(line.strip())
 
-    return end_sentence.join([s[:1].lower() + s[1:] for s in sentences])
+    return ' <eos> '.join([s[:1].lower() + s[1:] for s in sentences])

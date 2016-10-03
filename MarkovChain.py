@@ -1,7 +1,6 @@
 from collections import Counter
 from operator import itemgetter
 import numpy as np
-import nltk
 
 
 class MarkovChain():
@@ -10,10 +9,10 @@ class MarkovChain():
         self.text = text
         self.order = order
 
-        tokens = ['$'] + nltk.word_tokenize(self.text)
+        tokens = ['<eos>'] + self.text.split()
         n_words = len(set(tokens))
 
-        states = list(nltk.ngrams(tokens, n=order))
+        states = zip(*[tokens[i:] for i in range(order)])
         n_states = len(set(states))
 
         states_lookup = dict(zip(set(states), range(n_states)))
@@ -21,7 +20,7 @@ class MarkovChain():
 
         counts = np.zeros((n_states, n_words))
 
-        for ngram, c in Counter(nltk.ngrams(tokens, n=order + 1)).iteritems():
+        for ngram, c in Counter(zip(*[tokens[i:] for i in range(order + 1)])).iteritems():
             x = states_lookup[ngram[:order]]
             y = words_lookup[ngram[order]]
             counts[x, y] = c
@@ -30,7 +29,7 @@ class MarkovChain():
             P = counts/counts.sum(axis=1)[:, None]
             P[np.isnan(P)] = 0
 
-        self.begin = sorted([state for state in set(states) if state[0] == '$'],
+        self.begin = sorted([state for state in set(states) if state[0] == '<eos>'],
                             key=itemgetter(1))
 
         self.vocab = sorted(words_lookup.keys())
@@ -49,7 +48,7 @@ class MarkovChain():
         s = ' '.join(last)
         next = self.next_word(last)
 
-        while next != '$':
+        while next != '<eos>':
             s += ' ' + next
             last = last_state(s, self.order)
             next = self.next_word(last)
